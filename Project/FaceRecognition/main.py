@@ -1,170 +1,102 @@
 import dlib
-import os
-from skimage import io
-from scipy.spatial import distance
 import cv2
-import json
-import sounddevice as sd
-import wavio
-import speech_recognition as sr
+from scipy.spatial import distance
 import threading
 import time
 
-path = './train'
-json_file = 'faces.json'
-frame_skip = 2  # Number of frames to skip for processing
+# Initialize the shape predictor and face recognition model
+sp = dlib.shape_predictor('./shape_predictor_68_face_landmarks.dat')
+facerec = dlib.face_recognition_model_v1('./dlib_face_recognition_resnet_model_v1.dat')
+detector = dlib.get_frontal_face_detector()
 
-# Ensure the 'train' directory exists
-if not os.path.exists(path):
-    os.makedirs(path)
+# Known faces database (empty for now)
+known_ids = []
+face_descriptors = []
 
-# Load existing faces from JSON file if it exists
-def load_faces():
-    if os.path.exists(json_file):
-        try:
-            with open(json_file, 'r') as f:
-                content = f.read().strip()
-                if content:
-                    return json.loads(content)
-                else:
-                    print("JSON file is empty, returning empty dictionary.")
-                    return {}
-        except json.JSONDecodeError:
-            print("JSON file is corrupted or invalid. Returning empty dictionary.")
-            return {}
-    return {}
+# Global flag to manage face recognition timing
+last_recognition_time = 0
+recognition_interval = 2  # Minimum time between face recognitions (in seconds)
 
-# Save faces to JSON file
-def save_faces(faces):
-    with open(json_file, 'w') as f:
-        json.dump(faces, f)
+# Thread function to recognize faces
+def recognize_face_thread(img, shape, face_descriptors, known_ids):
+    global last_recognition_time
+    face_descriptor = facerec.compute_face_descriptor(img, shape)
 
-def save_face_image(name):
-    cap = cv2.VideoCapture(0)
-    ret, frame = cap.read()
-    if ret:
-        cv2.imwrite(f'./train/{name}.jpg', frame)
-    cap.release()
+    for i, known_descriptor in enumerate(face_descriptors):
+        dist = distance.euclidean(known_descriptor, face_descriptor)
+        if dist < 0.6:
+            print(f"Known: {known_ids[i]}")
+            break
 
-def record_audio(filename):
-    fs = 44100
-    seconds = 3
-    print("Recording...")
-    myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=2)
-    sd.wait()  # Wait until recording is finished
-    wavio.write(filename, myrecording, fs, sampwidth=2)
-    print("Recording complete.")
+    last_recognition_time = time.time()
 
-def recognize_voice():
-    r = sr.Recognizer()
-    record_audio("temp.wav")  # Record audio to temp.wav
-    with sr.AudioFile("temp.wav") as source:
-        audio = r.record(source)
-        try:
-            name = r.recognize_google(audio)
-            print(f"You said: {name}")
-            return name
-        except sr.UnknownValueError:
-            print("Sorry, I could not understand the audio.")
-            return None
-        except sr.RequestError:
-            print("Could not request results from Google Speech Recognition service.")
-            return None
-
-def detect_and_recognize_faces(cap, faces, id, face_descriptor):
-    sp = dlib.shape_predictor('./shape_predictor_68_face_landmarks.dat')
-    facerec = dlib.face_recognition_model_v1('./dlib_face_recognition_resnet_model_v1.dat')
-    detector = dlib.get_frontal_face_detector()
+# Function to detect and recognize faces
+def detect_and_recognize_faces(cap, face_descriptors, known_ids, skip_frames=5):
+    global last_recognition_time
+    frame_count = 0
 
     while True:
         ret, img = cap.read()
         if not ret:
             break
 
-        # Resize the image to speed up processing
-        img = cv2.resize(img, (640, 480))
-        dets_webcam = detector(img, 1)
+        frame_count += 1
+        if frame_count % skip_frames != 0:
+            continue
 
-        if len(dets_webcam) > 0:
-            for k, d in enumerate(dets_webcam):
-                shape = sp(img, d)
+        # Resize frame to reduce computation
+        img_small = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
+        dets = detector(img_small, 0)
 
-                # Draw rectangle around the detected face
-                x1 = d.left()
-                y1 = d.top()
-                x2 = d.right()
-                y2 = d.bottom()
+        if len(dets) > 0:
+            for det in dets:
+                shape = sp(img, det)
+
+                # Scale face rectangle coordinates back to the original size
+                x1 = int(det.left() * 2)   # Scale x1
+                y1 = int(det.top() * 2)    # Scale y1
+                x2 = int(det.right() * 2)  # Scale x2
+                y2 = int(det.bottom() * 2) # Scale y2
+
+                # Draw rectangle around the face
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            face_descriptor2 = facerec.compute_face_descriptor(img, shape)
+                # Display "Face Detected" label below the rectangle
+                cv2.putText(img, "Face Detected", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-            flag = True
-            for i in range(len(face_descriptor)):
-                a = distance.euclidean(face_descriptor[i], face_descriptor2)
-                if a < 0.6:
-                    print(f"Known: {id[i]}")
-                    flag = False
-                    break
-
-            if flag:
-                print('Unknown')
-                name = recognize_voice()
-                if name:
-                    save_face_image(name)
-                    faces[name] = f'./train/{name}.jpg'
-                    id.append(name)
-                    face_descriptor.append(face_descriptor2)
-                    save_faces(faces)
+                # Perform recognition only if enough time has passed since the last recognition
+                current_time = time.time()
+                if current_time - last_recognition_time > recognition_interval:
+                    threading.Thread(target=recognize_face_thread, args=(img, shape, face_descriptors, known_ids)).start()
 
         else:
-            print("No face detected")
+            # No face detected, display "Unknown"
+            cv2.putText(img, "Unknown", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        # Display the webcam image
-        cv2.imshow("Webcam", img)
+        # Display the frame
+        cv2.imshow('Webcam', img)
 
-        # Break the loop if the 'q' key is pressed
+        # Exit if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
     cv2.destroyAllWindows()
 
-def mainFunc():
-    print("Start Capture")
-    faces = load_faces()
-    id = list(faces.keys())
-    face_descriptor = []
-
-    print("All base: ", end='')
-    print(id)
-
-    # Extract descriptors from the saved photos
-    sp = dlib.shape_predictor('./shape_predictor_68_face_landmarks.dat')
-    facerec = dlib.face_recognition_model_v1('./dlib_face_recognition_resnet_model_v1.dat')
-    detector = dlib.get_frontal_face_detector()
-    imagePaths = [os.path.join(path, f) for f in os.listdir(path)]
-    imagePaths.sort()
-
-    for imagePath in imagePaths:
-        img = io.imread(imagePath)
-        dets = detector(img, 1)
-
-        if dets:
-            for k, d in enumerate(dets):
-                shape = sp(img, d)
-                descriptor = facerec.compute_face_descriptor(img, shape)
-                face_descriptor.append(descriptor)
-        else:
-            print(f"No face detected in image: {imagePath}")
-
+# Main function to start the camera and detection
+def main():
+    # Open webcam
     cap = cv2.VideoCapture(0)
 
-    # Start the detection and recognition thread
-    detection_thread = threading.Thread(target=detect_and_recognize_faces, args=(cap, faces, id, face_descriptor))
-    detection_thread.start()
+    # Set camera resolution to 1920x1080
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Wait for the thread to finish (it won't in this case since it's an infinite loop)
-    detection_thread.join()
+    # Increase FPS limit for smoother feed
+    cap.set(cv2.CAP_PROP_FPS, 240)
 
-# Start the face recognition system
-mainFunc()
+    # Start face detection and recognition
+    detect_and_recognize_faces(cap, face_descriptors, known_ids)
+
+if __name__ == "__main__":
+    main()
