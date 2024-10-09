@@ -4,9 +4,13 @@ from scipy.spatial import distance
 import threading
 import time
 
+# Absolute paths to the shape predictor and face recognition model
+shape_predictor_path = 'D:/Programjaim/Projekt/Projekt/Project/FaceRecognition/shape_predictor_68_face_landmarks.dat'
+face_recognition_model_path = 'D:/Programjaim/Projekt/Projekt/Project/FaceRecognition/dlib_face_recognition_resnet_model_v1.dat'
+
 # Initialize the shape predictor and face recognition model
-sp = dlib.shape_predictor('./shape_predictor_68_face_landmarks.dat')
-facerec = dlib.face_recognition_model_v1('./dlib_face_recognition_resnet_model_v1.dat')
+sp = dlib.shape_predictor(shape_predictor_path)
+facerec = dlib.face_recognition_model_v1(face_recognition_model_path)
 detector = dlib.get_frontal_face_detector()
 
 # Known faces database (empty for now)
