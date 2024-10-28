@@ -1,2 +1,3 @@
 # Projekt
-![alt text](image.png)
+Jira Board
+https://projektfacedetection.atlassian.net/jira/core/projects/FAC/board

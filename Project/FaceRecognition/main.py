@@ -7,6 +7,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import HTMLResponse
 import numpy as np
 import os
+from database import save_face_to_db
 
 shape_predictor_path = 'shape_predictor_68_face_landmarks.dat'
 face_recognition_model_path = 'dlib_face_recognition_resnet_model_v1.dat'
@@ -65,6 +66,18 @@ def detect_and_recognize_faces(image: np.ndarray):
 
     else:
         print("No face detected")
+
+# Egyedi ID létrehozása és arcok mentése a fő alkalmazásban
+def detect_and_save_faces(image):
+    dets = detector(image, 0)
+
+    if dets:
+        for i, det in enumerate(dets):
+            x1, y1, x2, y2 = int(det.left()), int(det.top()), int(det.right()), int(det.bottom())
+            face_image = image[y1:y2, x1:x2]
+
+            face_id = f"face_{i}_{int(time.time())}"
+            save_face_to_db(face_image, face_id)
 
 # Endpoint to upload an image for face recognition
 @app.post("/upload/")
