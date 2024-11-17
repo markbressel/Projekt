@@ -1,26 +1,40 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
+import { useRouter } from 'expo-router'; // Import useRouter
 
 export default function RegistrationScreen() {
-  const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const router = useRouter(); // Initialize router
 
-  const handleRegister = () => {
-    console.log('Registered:', { username, email });
-    router.push('/login'); // Redirect to login on registration success
+  const handleRegister = async () => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email,
+        createdAt: new Date(),
+      });
+
+      alert('Registration Successful!');
+      router.push('/login'); // Navigate to the Login screen
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
       <TextInput
-        placeholder="Username"
+        placeholder="Email"
         style={styles.input}
-        value={username}
-        onChangeText={setUsername}
+        value={email}
+        onChangeText={setEmail}
       />
       <TextInput
         placeholder="Password"
@@ -28,12 +42,6 @@ export default function RegistrationScreen() {
         style={styles.input}
         value={password}
         onChangeText={setPassword}
-      />
-      <TextInput
-        placeholder="Email"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
       />
       <Button title="Register" onPress={handleRegister} />
     </View>
