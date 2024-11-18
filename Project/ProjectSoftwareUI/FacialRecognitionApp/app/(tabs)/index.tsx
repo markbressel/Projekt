@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { auth } from '../../firebaseConfig'; // Adjust the path to your firebaseConfig
 
@@ -7,21 +7,18 @@ export default function HomeScreen() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Track authentication state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsLoggedIn(!!user); // Set `isLoggedIn` to true if there's a logged-in user
+      setIsLoggedIn(!!user);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  // Logout handler
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      alert('Logged out successfully!');
+      alert('Sikeres kijelentkezés!');
     } catch (error) {
       alert(error.message);
     }
@@ -29,21 +26,27 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to the Home Screen!</Text>
+      <Text style={styles.title}>Üdvözöllek az Arcfelismerő Programban!</Text>
 
-      {/* Show login and register buttons if the user is not logged in */}
       {!isLoggedIn && (
         <>
-          <Button title="Go to Login" onPress={() => router.push('/login')} />
-          <Button title="Go to Register" onPress={() => router.push('/register')} />
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
+            <Text style={styles.buttonText}>Bejelentkezés</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/register')}>
+            <Text style={styles.buttonText}>Regisztráció</Text>
+          </TouchableOpacity>
         </>
       )}
 
-      {/* Show logout and upload image buttons if the user is logged in */}
       {isLoggedIn && (
         <>
-          <Button title="Upload Image" onPress={() => router.push('/upload-image')} />
-          <Button title="Logout" onPress={handleLogout} />
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/upload-image')}>
+            <Text style={styles.buttonText}>Kép Feltöltése</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
+            <Text style={[styles.buttonText, styles.logoutButtonText]}>Kijelentkezés</Text>
+          </TouchableOpacity>
         </>
       )}
     </View>
@@ -51,6 +54,39 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  title: { fontSize: 24, marginBottom: 20 },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f7f8fa',
+    padding: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 30,
+  },
+  button: {
+    width: '80%',
+    height: 50,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  buttonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    backgroundColor: '#fff',
+    borderColor: '#4CAF50',
+    borderWidth: 2,
+  },
+  logoutButtonText: {
+    color: '#4CAF50',
+  },
 });
