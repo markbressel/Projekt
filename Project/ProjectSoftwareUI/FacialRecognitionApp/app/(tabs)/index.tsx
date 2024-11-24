@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { auth } from '../../firebaseConfig'; // Adjust the path to your firebaseConfig
+import { auth } from '../../firebaseConfig';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function HomeScreen() {
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      alert('Sikeres kijelentkezés!');
+      alert('Successfully logged out!');
     } catch (error) {
       alert(error.message);
     }
@@ -31,10 +31,10 @@ export default function HomeScreen() {
       {!isLoggedIn && (
         <>
           <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
-            <Text style={styles.buttonText}>Bejelentkezés</Text>
+            <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={() => router.push('/register')}>
-            <Text style={styles.buttonText}>Regisztráció</Text>
+            <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
         </>
       )}
@@ -42,10 +42,13 @@ export default function HomeScreen() {
       {isLoggedIn && (
         <>
           <TouchableOpacity style={styles.button} onPress={() => router.push('/upload-image')}>
-            <Text style={styles.buttonText}>Kép Feltöltése</Text>
+            <Text style={styles.buttonText}>Upload Image</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/view-images')}>
+            <Text style={styles.buttonText}>View Uploaded Images</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
-            <Text style={[styles.buttonText, styles.logoutButtonText]}>Kijelentkezés</Text>
+            <Text style={[styles.buttonText, styles.logoutButtonText]}>Logout</Text>
           </TouchableOpacity>
         </>
       )}
@@ -54,39 +57,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f7f8fa',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 30,
-  },
-  button: {
-    width: '80%',
-    height: 50,
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  buttonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  logoutButton: {
-    backgroundColor: '#fff',
-    borderColor: '#4CAF50',
-    borderWidth: 2,
-  },
-  logoutButtonText: {
-    color: '#4CAF50',
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  title: { fontSize: 28, marginBottom: 30 },
+  button: { width: '80%', height: 50, backgroundColor: '#4CAF50', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  buttonText: { fontSize: 16, color: '#fff', fontWeight: 'bold' },
+  logoutButton: { backgroundColor: '#fff', borderColor: '#4CAF50', borderWidth: 2 },
+  logoutButtonText: { color: '#4CAF50' },
 });

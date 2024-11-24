@@ -13,7 +13,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       alert('Bejelentkezés sikeres!');
-      router.push('/'); // Navigálás a kezdőoldalra
+      router.push('/'); //
     } catch (error) {
       alert(error.message);
     }
