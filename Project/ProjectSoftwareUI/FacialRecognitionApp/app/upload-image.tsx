@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, ActivityIndi
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
-import { getAuth } from '../firebaseConfig';
-import { db, storage } from '../firebaseConfig';
+import { db,auth, storage } from '../firebaseConfig';
 
 export default function UploadImageScreen() {
   const [image, setImage] = useState(null);
@@ -51,64 +50,35 @@ export default function UploadImageScreen() {
   };
 
   const uploadImage = async () => {
-    if (!image) {
-      alert('Please select an image first');
-      return;
-    }
-
-    setUploading(true);
-
+    if (!image) return;
+  
     try {
-      // Get current user
-      const auth = await getAuth();
-      const user = auth.currentUser;
-
-      if (!user) {
-        alert('You must be logged in to upload an image.');
-        setUploading(false);
-        return;
-      }
-
-      // Convert image URI to blob
-      const response = await fetch(image);
-      const blob = await response.blob();
-
-      // Create unique filename
-      const timestamp = Date.now();
-      const fileExtension = imageName?.split('.').pop() || 'jpg';
-      const fileName = `${timestamp}.${fileExtension}`;
-
-      // Create storage reference
-      const storageRef = ref(storage, `users/${user.uid}/images/${fileName}`);
-
-      // Upload image
-      await uploadBytes(storageRef, blob);
-
-      // Get download URL
-      const downloadURL = await getDownloadURL(storageRef);
-
-      // Save image metadata to Firestore
-      await setDoc(doc(db, `users/${user.uid}/images`, `${timestamp}`), {
-        imageUrl: downloadURL,
-        fileName: imageName || 'Unnamed File',
-        uploadedAt: new Date().toISOString(),
-        originalName: imageName,
-        size: blob.size,
-        type: blob.type,
+      const formData = new FormData();
+      formData.append("file", {
+        uri: image,
+        name: `photo_${Date.now()}.jpg`,
+        type: "image/jpeg",
       });
-
-      // Clear state and show success message
-      setImage(null);
-      setImageName(null);
-      alert('Image Uploaded Successfully!');
+  
+      const response = await fetch("http://<YOUR_BACKEND_SERVER_IP>:8000/upload/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
+  
+      const result = await response.json();
+      if (response.ok) {
+        alert(`Image uploaded: ${result.filename}`);
+      } else {
+        alert(`Upload failed: ${result.message}`);
+      }
     } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Failed to upload image. Please try again.');
-    } finally {
-      setUploading(false);
+      alert(`Error: ${error.message}`);
     }
   };
-
+  
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Upload Image</Text>
