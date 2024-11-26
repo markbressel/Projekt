@@ -9,39 +9,43 @@ import numpy as np
 import os
 from database import save_face_to_db
 
+# Paths to pre-trained models
 shape_predictor_path = 'shape_predictor_68_face_landmarks.dat'
 face_recognition_model_path = 'dlib_face_recognition_resnet_model_v1.dat'
 
-# Initialize the shape predictor and face recognition model
+# Initialize FastAPI app
+app = FastAPI()
+
+# Initialize dlib models
 sp = dlib.shape_predictor(shape_predictor_path)
 facerec = dlib.face_recognition_model_v1(face_recognition_model_path)
 detector = dlib.get_frontal_face_detector()
 
-# Known faces database (empty for now)
+# Known faces database
 known_ids = []
 face_descriptors = []
 saved_faces = []  # Store saved face images
 
-# Global flag to manage face recognition timing
+# Global variables for face recognition timing
 last_recognition_time = 0
-recognition_interval = 2  # Minimum time between face recognitions (in seconds)
+recognition_interval = 2  # Minimum interval between recognitions in seconds
 
-app = FastAPI()
 
-# Function to recognize faces
+# Recognize faces in a separate thread
 def recognize_face_thread(img, shape):
     global last_recognition_time
     face_descriptor = facerec.compute_face_descriptor(img, shape)
 
     for i, known_descriptor in enumerate(face_descriptors):
         dist = distance.euclidean(known_descriptor, face_descriptor)
-        if dist < 0.6:
-            print(f"Known: {known_ids[i]}")
+        if dist < 0.6:  # Match threshold
+            print(f"Recognized: {known_ids[i]}")
             break
 
     last_recognition_time = time.time()
 
-# Function to detect and recognize faces in an image
+
+# Detect and recognize faces in an image
 def detect_and_recognize_faces(image: np.ndarray):
     global last_recognition_time
 
@@ -55,19 +59,20 @@ def detect_and_recognize_faces(image: np.ndarray):
             x1, y1, x2, y2 = int(det.left()), int(det.top()), int(det.right()), int(det.bottom())
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            # Perform recognition only if enough time has passed since the last recognition
+            # Perform recognition if interval has passed
             current_time = time.time()
             if current_time - last_recognition_time > recognition_interval:
                 threading.Thread(target=recognize_face_thread, args=(image, shape)).start()
 
-            # Save the detected face
+            # Save detected face
             face_image = image[y1:y2, x1:x2]  # Extract the face region
             saved_faces.append(face_image)  # Store the face image
 
     else:
         print("No face detected")
 
-# Egyedi ID létrehozása és arcok mentése a fő alkalmazásban
+
+# Save detected faces to a database with unique IDs
 def detect_and_save_faces(image):
     dets = detector(image, 0)
 
@@ -79,7 +84,8 @@ def detect_and_save_faces(image):
             face_id = f"face_{i}_{int(time.time())}"
             save_face_to_db(face_image, face_id)
 
-# Endpoint to upload an image for face recognition
+
+# FastAPI endpoint: Upload an image for face detection and recognition
 @app.post("/upload/")
 async def upload_image(file: UploadFile = File(...)):
     contents = await file.read()
@@ -90,7 +96,8 @@ async def upload_image(file: UploadFile = File(...)):
 
     return {"filename": file.filename}
 
-# Endpoint to save detected faces
+
+# FastAPI endpoint: Save detected faces to disk
 @app.post("/save_faces/")
 async def save_faces():
     if saved_faces:
@@ -99,7 +106,8 @@ async def save_faces():
         return {"message": "Faces saved successfully"}
     return {"message": "No faces detected to save"}
 
-# HTML form to upload an image and save detected faces
+
+# FastAPI HTML interface
 @app.get("/")
 def main():
     content = """
@@ -118,6 +126,8 @@ def main():
     """
     return HTMLResponse(content=content)
 
+
+# Main entry point
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
