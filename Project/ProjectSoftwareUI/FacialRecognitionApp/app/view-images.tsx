@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator, Button } from 'react-native';
 import { collection, getDocs, query, limit, startAfter, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 
-export default function ViewImagesScreen() {
+export default function ViewImagesScreen({ navigation }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [lastVisible, setLastVisible] = useState(null); // For pagination
+  const [lastVisible, setLastVisible] = useState(null);
 
   useEffect(() => {
-    // Monitor authentication state
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -33,23 +32,17 @@ export default function ViewImagesScreen() {
     const fetchImages = async () => {
       try {
         setLoading(true);
-
-        // Fetch image metadata from Firestore
         const userImagesCollection = collection(db, `users/${user.uid}/images`);
-
-        // Initial fetch (first batch)
-        const q = query(userImagesCollection, limit(10)); // Fetch first 10 images
+        const q = query(userImagesCollection, limit(10));
         const querySnapshot = await getDocs(q);
-
         const userImages = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
 
         setImages(userImages);
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]); // Store last visible document for pagination
+        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
 
-        // Real-time updates with onSnapshot
         const unsubscribe = onSnapshot(userImagesCollection, (snapshot) => {
           const newImages = snapshot.docs.map((doc) => ({
             id: doc.id,
@@ -58,12 +51,15 @@ export default function ViewImagesScreen() {
 
           setImages((prevImages) => {
             const newIds = new Set(newImages.map((img) => img.id));
-            const mergedImages = [...prevImages.filter((img) => !newIds.has(img.id)), ...newImages];
+            const mergedImages = [
+              ...prevImages.filter((img) => !newIds.has(img.id)),
+              ...newImages,
+            ];
             return mergedImages;
           });
         });
 
-        return () => unsubscribe(); // Unsubscribe when component unmounts
+        return () => unsubscribe();
       } catch (error) {
         console.error('Error fetching images:', error);
         alert('Failed to load images.');
@@ -75,15 +71,12 @@ export default function ViewImagesScreen() {
     fetchImages();
   }, [user]);
 
-  // Function to load more images (pagination)
   const loadMoreImages = async () => {
     try {
       setLoading(true);
-
       const userImagesCollection = collection(db, `users/${user.uid}/images`);
       const q = query(userImagesCollection, limit(10), startAfter(lastVisible));
       const querySnapshot = await getDocs(q);
-
       const newImages = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -117,19 +110,24 @@ export default function ViewImagesScreen() {
   }
 
   return (
-    <FlatList
-      contentContainerStyle={styles.container}
-      data={images}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: item.imageUrl }} style={styles.image} />
-          <Text style={styles.fileName}>{item.fileName}</Text>
-        </View>
-      )}
-      onEndReached={loadMoreImages} // Trigger loadMoreImages when user scrolls to the end
-      onEndReachedThreshold={0.1} // Trigger when user is close to the end
-    />
+    <View style={styles.container}>
+      <FlatList
+        data={images}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: item.imageUrl }} style={styles.image} />
+            <Text style={styles.fileName}>{item.fileName}</Text>
+          </View>
+        )}
+        onEndReached={loadMoreImages}
+        onEndReachedThreshold={0.1}
+      />
+      <Button
+        title="View Cropped Images"
+        onPress={() => navigation.navigate('cropped-images')}
+      />
+    </View>
   );
 }
 
