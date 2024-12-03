@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator, Button } from 'react-native';
+import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator, Button, TouchableOpacity, ImageBackground } from 'react-native';
 import { collection, getDocs, query, limit, startAfter, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
@@ -94,23 +94,32 @@ export default function ViewImagesScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+      <ImageBackground
+        source={require('../assets/images/background.jpg')}
+        style={styles.container}
+      >
+        <ActivityIndicator size="large" color="#fff" />
         <Text style={styles.loadingText}>Loading images...</Text>
-      </View>
+      </ImageBackground>
     );
   }
 
   if (!images.length) {
     return (
-      <View style={styles.container}>
+      <ImageBackground
+        source={require('../assets/images/background.jpg')}
+        style={styles.container}
+      >
         <Text style={styles.noImagesText}>No images uploaded yet.</Text>
-      </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../assets/images/background.jpg')}
+      style={styles.container}
+    >
       <FlatList
         data={images}
         keyExtractor={(item) => item.id}
@@ -123,29 +132,33 @@ export default function ViewImagesScreen({ navigation }) {
         onEndReached={loadMoreImages}
         onEndReachedThreshold={0.1}
       />
-      <Button
-        title="View Cropped Images"
+      <TouchableOpacity
+        style={[styles.button, styles.primaryButton]}
         onPress={() => navigation.navigate('cropped-images')}
-      />
-    </View>
+      >
+        <Text style={styles.buttonText}>View Cropped Images</Text>
+      </TouchableOpacity>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    padding: 20,
-    backgroundColor: '#f7f8fa',
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Transparent background to make the content stand out
+    padding: 20,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#fff',
+    textAlign: 'center',
   },
   noImagesText: {
     fontSize: 18,
-    color: '#666',
+    color: '#fff',
     textAlign: 'center',
   },
   imageContainer: {
@@ -161,6 +174,28 @@ const styles = StyleSheet.create({
   fileName: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#fff',
+  },
+  button: {
+    width: '80%',
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  primaryButton: {
+    backgroundColor: '#000', // Black background for the primary button
+  },
+  buttonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });

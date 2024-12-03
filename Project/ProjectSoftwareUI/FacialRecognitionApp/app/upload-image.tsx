@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, ImageBackground } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
@@ -96,15 +96,18 @@ export default function UploadImageScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../assets/images/background.jpg')}
+      style={styles.container}
+    >
       <Toast />
       <Text style={styles.title}>Upload Image</Text>
 
-      <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
-        <Text style={styles.buttonText}>Pick Image</Text>
+      <TouchableOpacity style={styles.button} onPress={pickImage}>
+        <Text style={[styles.buttonText]}>Pick Image</Text>
       </TouchableOpacity>
 
-      {imageName && <Text style={styles.fileName}>Selected File: {imageName}</Text>}
+      {imageName && <Text style={styles.subtitle}>Selected File: {imageName}</Text>}
 
       {image && (
         <View style={styles.imageContainer}>
@@ -113,24 +116,81 @@ export default function UploadImageScreen() {
       )}
 
       <TouchableOpacity
-        style={[styles.uploadButton, !image && styles.disabledButton]}
+        style={[styles.button, styles.primaryButton, !image && styles.disabledButton]}
         onPress={uploadImage}
         disabled={!image}
       >
-        <Text style={styles.buttonText}>Upload Image</Text>
+        <Text style={[styles.buttonText]}>Upload Image</Text>
       </TouchableOpacity>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 24, marginBottom: 30, fontWeight: 'bold', color: '#333' },
-  fileName: { marginTop: 10, fontSize: 16, color: '#666', textAlign: 'center' },
-  imageContainer: { marginVertical: 20, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#ddd' },
-  image: { width: 300, height: 300, backgroundColor: '#f0f0f0' },
-  pickButton: { backgroundColor: '#4CAF50', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 8, marginBottom: 10 },
-  uploadButton: { backgroundColor: '#2196F3', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 8, marginTop: 10 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  disabledButton: { backgroundColor: '#cccccc' },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Transparent black background
+    padding: 20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+    textAlign: 'center',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 10,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: '#fff',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  imageContainer: {
+    marginVertical: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  image: {
+    width: 300,
+    height: 300,
+    backgroundColor: '#f0f0f0',
+  },
+  button: {
+    width: '80%',
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+    backgroundColor: '#fff', // Fehér háttér
+  },
+  buttonText: {
+    fontSize: 16,
+    color: '#000', // Fekete szöveg
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  primaryButton: {
+    backgroundColor: '#fff', // Black background for primary button
+  },
+  secondaryButton: {
+    backgroundColor: '#fff', // White background for secondary button
+    borderColor: '#000',
+    borderWidth: 2,
+  },
+  secondaryButtonText: {
+    color: '#fff', // Black text for the secondary button
+  },
 });
