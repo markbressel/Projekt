@@ -1,39 +1,33 @@
-from pymongo import MongoClient
 import cv2
-import base64
+import uuid
+from firebase_admin import credentials, storage
+import firebase_admin
+from firebase_config import bucket
 
-# MongoDB kapcsolat létrehozása
-client = MongoClient("mongodb://localhost:27017/")  # Az URL-t szükség szerint módosíthatod
-db = client["face_database"]  # Adatbázis neve
-collection = db["faces"]  # Kollekció neve
-
-def save_face_to_db(face_image, face_id):
-    # A képet Base64 kódolással átalakítjuk szöveggé
+def save_face_to_firebase(face_image, user_id):
+    """
+    Save a cropped face image to Firebase Storage in the `cropped_images` folder for the user.
+    """
     _, buffer = cv2.imencode(".png", face_image)
-    face_base64 = base64.b64encode(buffer).decode("utf-8")
+    image_bytes = buffer.tobytes()
 
-    # Ellenőrizzük, hogy az arc már létezik-e az adatbázisban
-    if collection.find_one({"face_id": face_id}):
-        print(f"Face with ID {face_id} already exists in the database.")
-        return
+    # Create a unique filename in Firebase
+    file_name = f"users/{user_id}/cropped_images/cropped_{uuid.uuid4().hex}.png"
+    blob = bucket.blob(file_name)
+
+    # Upload the file
+    blob.upload_from_string(image_bytes, content_type='image/png')
+
+    # Return the public URL
+    blob.make_public()
+    return blob.public_url
+
+def get_cropped_images(user_id):
+    """
+    Retrieve all cropped images for a specific user from Firebase Storage.
+    """
+    user_folder = f"users/{user_id}/cropped_images"
+    blobs = bucket.list_blobs(prefix=user_folder)
     
-    # Új arc hozzáadása az adatbázishoz
-    collection.insert_one({
-        "face_id": face_id,
-        "image_data": face_base64
-    })
-    print(f"Face with ID {face_id} saved to the database.")
-
-# A detektált arcokat itt hívhatod meg
-def detect_and_save_faces(image):
-    dets = detector(image, 0)  # arcok detektálása
-
-    if dets:
-        for i, det in enumerate(dets):
-            # Detektált arc körbevágása
-            x1, y1, x2, y2 = int(det.left()), int(det.top()), int(det.right()), int(det.bottom())
-            face_image = image[y1:y2, x1:x2]
-
-            # Egyedi ID generálása az archoz
-            face_id = f"face_{i}_{int(time.time())}"
-            save_face_to_db(face_image, face_id)
+    # Collect public URLs for each blob
+    return [blob.public_url for blob in blobs if blob.name.endswith(".png")]

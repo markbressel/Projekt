@@ -1,133 +1,118 @@
+
 import cv2
-import dlib
-from scipy.spatial import distance
-import threading
-import time
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import HTMLResponse
+import uuid
 import numpy as np
-import os
-from database import save_face_to_db
+from fastapi import FastAPI, Form, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from firebase_config import bucket
 
-# Paths to pre-trained models
-shape_predictor_path = 'shape_predictor_68_face_landmarks.dat'
-face_recognition_model_path = 'dlib_face_recognition_resnet_model_v1.dat'
-
-# Initialize FastAPI app
+# Initialize FastAPI
 app = FastAPI()
 
-# Initialize dlib models
-sp = dlib.shape_predictor(shape_predictor_path)
-facerec = dlib.face_recognition_model_v1(face_recognition_model_path)
-detector = dlib.get_frontal_face_detector()
+origins = [
+    "http://localhost:8081",
+    "http://localhost:8001",
+    "http://localhost:8000",
+    "http://localhost:8081/upload-image"
+]
 
-# Known faces database
-known_ids = []
-face_descriptors = []
-saved_faces = []  # Store saved face images
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Global variables for face recognition timing
-last_recognition_time = 0
-recognition_interval = 2  # Minimum interval between recognitions in seconds
+# Load the pre-trained Haar Cascade model for face detection
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
-
-# Recognize faces in a separate thread
-def recognize_face_thread(img, shape):
-    global last_recognition_time
-    face_descriptor = facerec.compute_face_descriptor(img, shape)
-
-    for i, known_descriptor in enumerate(face_descriptors):
-        dist = distance.euclidean(known_descriptor, face_descriptor)
-        if dist < 0.6:  # Match threshold
-            print(f"Recognized: {known_ids[i]}")
-            break
-
-    last_recognition_time = time.time()
-
-
-# Detect and recognize faces in an image
-def detect_and_recognize_faces(image: np.ndarray):
-    global last_recognition_time
-
-    dets = detector(image, 0)
-
-    if len(dets) > 0:
-        for det in dets:
-            shape = sp(image, det)
-
-            # Draw rectangle around the face
-            x1, y1, x2, y2 = int(det.left()), int(det.top()), int(det.right()), int(det.bottom())
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-            # Perform recognition if interval has passed
-            current_time = time.time()
-            if current_time - last_recognition_time > recognition_interval:
-                threading.Thread(target=recognize_face_thread, args=(image, shape)).start()
-
-            # Save detected face
-            face_image = image[y1:y2, x1:x2]  # Extract the face region
-            saved_faces.append(face_image)  # Store the face image
-
-    else:
-        print("No face detected")
-
-
-# Save detected faces to a database with unique IDs
-def detect_and_save_faces(image):
-    dets = detector(image, 0)
-
-    if dets:
-        for i, det in enumerate(dets):
-            x1, y1, x2, y2 = int(det.left()), int(det.top()), int(det.right()), int(det.bottom())
-            face_image = image[y1:y2, x1:x2]
-
-            face_id = f"face_{i}_{int(time.time())}"
-            save_face_to_db(face_image, face_id)
-
-
-# FastAPI endpoint: Upload an image for face detection and recognition
-@app.post("/upload/")
-async def upload_image(file: UploadFile = File(...)):
-    contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    detect_and_recognize_faces(img)
-
-    return {"filename": file.filename}
-
-
-# FastAPI endpoint: Save detected faces to disk
-@app.post("/save_faces/")
-async def save_faces():
-    if saved_faces:
-        for idx, face in enumerate(saved_faces):
-            cv2.imwrite(f"detected_face_{idx}.png", face)  # Save each face image
-        return {"message": "Faces saved successfully"}
-    return {"message": "No faces detected to save"}
-
-
-# FastAPI HTML interface
-@app.get("/")
-def main():
-    content = """
-    <html>
-        <body>
-            <h1>Upload an Image for Face Detection</h1>
-            <form action="/upload/" enctype="multipart/form-data" method="post">
-            <input name="file" type="file" />
-            <input type="submit" value="Upload" />
-            </form>
-            <form action="/save_faces/" method="post">
-            <input type="submit" value="Save Detected Faces" />
-            </form>
-        </body>
-    </html>
+def upload_to_firebase(image_bytes, folder, user_id, file_prefix):
     """
-    return HTMLResponse(content=content)
+    Upload an image to Firebase Storage and return its public URL.
+    """
+    file_name = f"users/{user_id}/{folder}/{file_prefix}_{uuid.uuid4().hex}.png"
+    blob = bucket.blob(file_name)
+    blob.upload_from_string(image_bytes, content_type="image/png")
+    blob.make_public()
+    return blob.public_url
 
+@app.post("/upload/")
+async def upload_image(file: UploadFile = File(...), user_id: str = Form(...)):
+    try:
+        print(f"Received file: {file.filename}")
+        print(f"Received user_id: {user_id}")
+    except Exception as e:
+        print(f"Error in upload endpoint: {e}")
+        return {"error": f"Error: {e}"}, 500
+    """
+    Upload an image to Firebase Storage and crop faces detected in the image.
+    """
+    if not file or not user_id:
+        return {"error": "File or user_id is missing"}, 400
 
-# Main entry point
+    try:
+        # Read the uploaded file
+        contents = await file.read()
+        np_arr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        # Convert the image to bytes for upload
+        _, buffer = cv2.imencode(".png", img)
+        image_bytes = buffer.tobytes()
+
+        # Upload the original image
+        original_image_url = upload_to_firebase(image_bytes, "images", user_id, "original")
+
+        # Detect faces in the image
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        cropped_urls = []
+
+        # Crop and upload each detected face
+        for i, (x, y, w, h) in enumerate(faces):
+            face_img = img[y:y + h, x:x + w]  # Crop the face
+            _, face_buffer = cv2.imencode(".png", face_img)
+            cropped_url = upload_to_firebase(face_buffer.tobytes(), "cropped_images", user_id, f"cropped_{i}")
+            cropped_urls.append(cropped_url)
+
+        return {
+            "message": "Image processed successfully.",
+            "original_image_url": original_image_url,
+            "cropped_images": cropped_urls,
+        }
+
+    except Exception as e:
+        return {"error": f"An error occurred: {str(e)}"}, 500
+
+@app.get("/cropped-images/")
+async def get_cropped_images(user_id: str):
+    """
+    Retrieve cropped images for a specific user from Firebase Storage.
+    """
+    try:
+        user_folder = f"users/{user_id}/cropped_images"
+        blobs = bucket.list_blobs(prefix=user_folder)
+
+        cropped_urls = [blob.public_url for blob in blobs if blob.name.endswith(".png")]
+        return {"cropped_images": cropped_urls}
+
+    except Exception as e:
+        return {"error": f"An error occurred: {str(e)}"}, 500
+
+@app.get("/")
+def root():
+    """
+    Basic HTML interface for testing uploads.
+    """
+    return {
+        "message": "Welcome to the Face Detection and Cropping API!",
+        "endpoints": [
+            "/upload/ (POST): Upload an image and detect/crop faces.",
+            "/cropped-images/ (GET): Get cropped images for a user.",
+        ],
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

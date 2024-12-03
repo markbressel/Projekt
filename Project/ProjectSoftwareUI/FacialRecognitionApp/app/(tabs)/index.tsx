@@ -50,6 +50,9 @@ export default function HomeScreen() {
           <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
             <Text style={[styles.buttonText, styles.logoutButtonText]}>Logout</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/cropped-images')}>
+            <Text style={styles.buttonText}>View Cropped Images</Text>
+          </TouchableOpacity>
         </>
       )}
     </View>

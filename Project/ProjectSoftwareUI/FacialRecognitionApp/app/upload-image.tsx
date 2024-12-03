@@ -10,7 +10,6 @@ export default function UploadImageScreen() {
   const [image, setImage] = useState(null);
   const [imageName, setImageName] = useState(null);
 
-  // Request permissions when component mounts
   useEffect(() => {
     (async () => {
       if (Platform.OS !== 'web') {
@@ -52,25 +51,45 @@ export default function UploadImageScreen() {
         return;
       }
 
-      const response = await fetch(image);
-      const blob = await response.blob();
-      const timestamp = Date.now();
-      const fileExtension = imageName?.split('.').pop() || 'jpg';
-      const fileName = `${timestamp}.${fileExtension}`;
-      const storageRef = ref(storage, `users/${user.uid}/images/${fileName}`);
+      const formData = new FormData();
+      formData.append('file', {
+        uri: image,
+        type: 'image/jpeg',
+        name: imageName || 'uploaded_image.jpg'
+      });
+      formData.append('user_id', user.uid);
 
-      await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(storageRef);
+      console.log("FormData:", formData);
 
-      await setDoc(doc(db, `users/${user.uid}/images`, `${timestamp}`), {
-        imageUrl: downloadURL,
-        fileName: imageName || 'Unnamed File',
-        uploadedAt: new Date().toISOString(),
+      const response = await fetch('http://192.168.0.106:8000/upload/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
-      setImage(null);
-      setImageName(null);
-      Toast.show({ type: 'success', text1: 'Success', text2: 'Image uploaded successfully!' });
+      const responseData = await response.json();
+
+      if (responseData.message === "Image processed successfully.") {
+        await setDoc(doc(db, `users/${user.uid}/images`, Date.now().toString()), {
+          imageUrl: responseData.original_image_url,
+          fileName: imageName || 'Unnamed File',
+          uploadedAt: new Date().toISOString(),
+        });
+
+        for (const croppedUrl of responseData.cropped_images) {
+          await setDoc(doc(db, `users/${user.uid}/cropped_images`, Date.now().toString()), {
+            imageUrl: croppedUrl,
+          });
+        }
+
+        setImage(null);
+        setImageName(null);
+        Toast.show({ type: 'success', text1: 'Success', text2: 'Image uploaded and processed!' });
+      } else {
+        throw new Error(responseData.error || 'Upload failed');
+      }
     } catch (error) {
       Toast.show({ type: 'error', text1: 'Upload Failed', text2: error.message });
     }
