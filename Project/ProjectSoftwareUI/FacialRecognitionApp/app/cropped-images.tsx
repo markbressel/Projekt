@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, FlatList, Image, StyleSheet, ActivityIndicator, Text } from "react-native";
-import { collection, getDocs } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { auth } from "../firebaseConfig";
 
 export default function CroppedImagesScreen() {
   const [croppedImages, setCroppedImages] = useState([]);
@@ -17,15 +16,13 @@ export default function CroppedImagesScreen() {
           return;
         }
 
-        const croppedImagesCollection = collection(db, `users/${user.uid}/cropped_images`);
-        const querySnapshot = await getDocs(croppedImagesCollection);
+        const response = await fetch(`http://192.168.0.106:8000/get-cropped-images/?user_id=${user.uid}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch cropped images");
+        }
 
-        const images = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setCroppedImages(images);
+        const result = await response.json();
+        setCroppedImages(result.cropped_images || []);
       } catch (error) {
         console.error("Error fetching cropped images:", error);
         alert("Failed to load cropped images.");
@@ -58,10 +55,10 @@ export default function CroppedImagesScreen() {
     <FlatList
       contentContainerStyle={styles.container}
       data={croppedImages}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item, index) => index.toString()}
       renderItem={({ item }) => (
         <View style={styles.imageContainer}>
-          <Image source={{ uri: item.imageUrl }} style={styles.image} />
+          <Image source={{ uri: item }} style={styles.image} />
         </View>
       )}
     />

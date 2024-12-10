@@ -85,7 +85,20 @@ async def upload_image(file: UploadFile = File(...), user_id: str = Form(...)):
     except Exception as e:
         return {"error": f"An error occurred: {str(e)}"}, 500
 
-@app.get("/cropped-images/")
+@app.get("/get-images/")
+async def get_images(user_id: str):
+    """
+    Retrieve uploaded images for a specific user from Firebase Storage.
+    """
+    try:
+        user_folder = f"users/{user_id}/images"
+        blobs = bucket.list_blobs(prefix=user_folder)
+        image_urls = [blob.public_url for blob in blobs if blob.name.endswith(".png")]
+        return {"images": image_urls}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@app.get("/get-cropped-images/")
 async def get_cropped_images(user_id: str):
     """
     Retrieve cropped images for a specific user from Firebase Storage.
@@ -93,12 +106,10 @@ async def get_cropped_images(user_id: str):
     try:
         user_folder = f"users/{user_id}/cropped_images"
         blobs = bucket.list_blobs(prefix=user_folder)
-
         cropped_urls = [blob.public_url for blob in blobs if blob.name.endswith(".png")]
         return {"cropped_images": cropped_urls}
-
     except Exception as e:
-        return {"error": f"An error occurred: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.get("/")
 def root():
@@ -109,7 +120,8 @@ def root():
         "message": "Welcome to the Face Detection and Cropping API!",
         "endpoints": [
             "/upload/ (POST): Upload an image and detect/crop faces.",
-            "/cropped-images/ (GET): Get cropped images for a user.",
+            "/get-images/ (GET): Get uploaded images for a user.",
+            "/get-cropped-images/ (GET): Get cropped images for a user.",
         ],
     }
 

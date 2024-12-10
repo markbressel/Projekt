@@ -1,100 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator, Button } from 'react-native';
-import { collection, getDocs, query, limit, startAfter, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../firebaseConfig';
+import React, { useEffect, useState } from "react";
+import { View, FlatList, Image, StyleSheet, ActivityIndicator, Text } from "react-native";
+import { auth } from "../firebaseConfig";
 
-export default function ViewImagesScreen({ navigation }) {
+export default function ViewImagesScreen() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [lastVisible, setLastVisible] = useState(null);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        setUser(null);
-        setImages([]);
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     const fetchImages = async () => {
       try {
-        setLoading(true);
-        const userImagesCollection = collection(db, `users/${user.uid}/images`);
-        const q = query(userImagesCollection, limit(10));
-        const querySnapshot = await getDocs(q);
-        const userImages = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const user = auth.currentUser;
+        if (!user) {
+          alert("You must be logged in to view your images.");
+          setLoading(false);
+          return;
+        }
 
-        setImages(userImages);
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
-
-        const unsubscribe = onSnapshot(userImagesCollection, (snapshot) => {
-          const newImages = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          setImages((prevImages) => {
-            const newIds = new Set(newImages.map((img) => img.id));
-            const mergedImages = [
-              ...prevImages.filter((img) => !newIds.has(img.id)),
-              ...newImages,
-            ];
-            return mergedImages;
-          });
-        });
-
-        return () => unsubscribe();
+        const response = await fetch(`http://192.168.0.106:8000/get-images/?user_id=${user.uid}`);
+        const result = await response.json();
+        setImages(result.images || []);
       } catch (error) {
-        console.error('Error fetching images:', error);
-        alert('Failed to load images.');
+        console.error("Error fetching images:", error);
+        alert("Failed to load images.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchImages();
-  }, [user]);
-
-  const loadMoreImages = async () => {
-    try {
-      setLoading(true);
-      const userImagesCollection = collection(db, `users/${user.uid}/images`);
-      const q = query(userImagesCollection, limit(10), startAfter(lastVisible));
-      const querySnapshot = await getDocs(q);
-      const newImages = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setImages([...images, ...newImages]);
-      setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
-    } catch (error) {
-      console.error('Error loading more images:', error);
-      alert('Failed to load more images.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text style={styles.loadingText}>Loading images...</Text>
       </View>
@@ -110,57 +48,24 @@ export default function ViewImagesScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={images}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: item.imageUrl }} style={styles.image} />
-            <Text style={styles.fileName}>{item.fileName}</Text>
-          </View>
-        )}
-        onEndReached={loadMoreImages}
-        onEndReachedThreshold={0.1}
-      />
-      <Button
-        title="View Cropped Images"
-        onPress={() => navigation.navigate('cropped-images')}
-      />
-    </View>
+    <FlatList
+      contentContainerStyle={styles.container}
+      data={images}
+      keyExtractor={(item, index) => index.toString()}
+      renderItem={({ item }) => (
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: item }} style={styles.image} />
+        </View>
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 20,
-    backgroundColor: '#f7f8fa',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-  },
-  noImagesText: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-  },
-  imageContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  image: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  fileName: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-  },
+  container: { flexGrow: 1, padding: 20, backgroundColor: "#f7f8fa", alignItems: "center" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
+  noImagesText: { fontSize: 18, color: "#666", textAlign: "center" },
+  imageContainer: { marginBottom: 20, alignItems: "center" },
+  image: { width: 200, height: 200, borderRadius: 8 },
 });
