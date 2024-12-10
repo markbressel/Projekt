@@ -1,14 +1,17 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from "react-native";
 import { Camera } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
 import { manipulateAsync } from "expo-image-manipulator";
+import * as FaceDetector from "expo-face-detector";
 
 export default function RealTimeCamera({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
-  const [camera, setCamera] = useState(null);
-  const [capturedImage, setCapturedImage] = useState(null);
+  const [capturedImages, setCapturedImages] = useState([]); // Store images with faces
+  const [faces, setFaces] = useState([]);
+  const [isFaceDetected, setIsFaceDetected] = useState(false); // Track if a face is detected
   const [processing, setProcessing] = useState(false);
+  const cameraRef = useRef(null);
 
   React.useEffect(() => {
     (async () => {
@@ -18,10 +21,33 @@ export default function RealTimeCamera({ navigation }) {
     })();
   }, []);
 
+  // Function to detect faces in the image
+  const detectFaces = async (uri: string) => {
+    const { result } = await FaceDetector.detectFacesAsync(uri, {
+      mode: FaceDetector.FaceDetectorMode.accurate,
+      detectLandmarks: FaceDetector.FaceDetectorLandmarks.all,
+      runClassifications: FaceDetector.FaceDetectorClassifications.all,
+    });
+
+    setFaces(result);
+    setIsFaceDetected(result.length > 0); // Update the state if a face is detected
+    return result;
+  };
+
+  // Function to take a picture
   const takePicture = async () => {
-    if (camera) {
-      const photo = await camera.takePictureAsync();
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync();
       setCapturedImage(photo.uri);
+
+      const detectedFaces = await detectFaces(photo.uri);
+
+      if (detectedFaces.length > 0) {
+        // Store images with faces
+        setCapturedImages((prev) => [...prev, photo.uri]);
+      } else {
+        alert("No face detected in the picture.");
+      }
     }
   };
 
@@ -31,7 +57,7 @@ export default function RealTimeCamera({ navigation }) {
     try {
       setProcessing(true);
 
-      // Compress image using expo-image-manipulator
+      // Compress and prepare the image for upload
       const compressedImage = await manipulateAsync(capturedImage, [], {
         compress: 0.8,
         format: "jpeg",
@@ -70,6 +96,26 @@ export default function RealTimeCamera({ navigation }) {
     }
   };
 
+  // Real-time face detection callback (to detect faces while the camera is on)
+  const handleFaceDetected = ({ faces }) => {
+    setFaces(faces); // Update the state with the detected faces
+    setIsFaceDetected(faces.length > 0); // Set flag based on face detection
+  };
+
+  const renderCapturedImages = () => {
+    if (capturedImages.length === 0) {
+      return <Text>No images with faces detected yet.</Text>;
+    }
+
+    return (
+      <ScrollView contentContainerStyle={styles.imageList}>
+        {capturedImages.map((imageUri, index) => (
+          <Image key={index} source={{ uri: imageUri }} style={styles.preview} />
+        ))}
+      </ScrollView>
+    );
+  };
+
   if (hasPermission === null) {
     return (
       <View style={styles.container}>
@@ -88,18 +134,35 @@ export default function RealTimeCamera({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {!capturedImage ? (
-        <>
-          <Camera
-            ref={(ref) => setCamera(ref)}
-            style={styles.camera}
-            type={Camera.Constants.Type.back}
-          />
-          <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-            <Text style={styles.buttonText}>Capture</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
+      <Camera
+        ref={cameraRef}
+        style={styles.camera}
+        type={Camera.Constants.Type.back}
+        onFacesDetected={handleFaceDetected}
+        faceDetectorSettings={{
+          mode: FaceDetector.Constants.Mode.accurate,
+        }}
+      >
+      </Camera>
+
+      {/* Capture button */}
+      <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+        <Text style={styles.buttonText}>Capture</Text>
+      </TouchableOpacity>
+
+      {/* If no face is detected, display a message */}
+      {!isFaceDetected && (
+        <Text style={styles.noFaceText}>No face detected</Text>
+      )}
+
+      {/* Display captured images with faces */}
+      <View style={styles.capturedImagesContainer}>
+        <Text style={styles.capturedImagesTitle}>Captured Images with Faces:</Text>
+        {renderCapturedImages()}
+      </View>
+
+      {/* Display the image preview after capturing */}
+      {capturedImage && (
         <>
           <Image source={{ uri: capturedImage }} style={styles.preview} />
           <TouchableOpacity
@@ -110,12 +173,6 @@ export default function RealTimeCamera({ navigation }) {
             <Text style={styles.buttonText}>
               {processing ? "Processing..." : "Upload & Detect Faces"}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.captureButton}
-            onPress={() => setCapturedImage(null)}
-          >
-            <Text style={styles.buttonText}>Retake</Text>
           </TouchableOpacity>
         </>
       )}
@@ -160,5 +217,27 @@ const styles = StyleSheet.create({
     height: "70%",
     borderRadius: 8,
     marginVertical: 20,
+  },
+  noFaceText: {
+    color: "#f44336",
+    fontSize: 16,
+    fontWeight: "bold",
+    position: "absolute",
+    top: 20,
+    textAlign: "center",
+  },
+  capturedImagesContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  capturedImagesTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  imageList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
 });
