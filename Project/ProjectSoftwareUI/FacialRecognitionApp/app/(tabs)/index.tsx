@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { TouchableOpacity, View, Text, StyleSheet, Modal, Platform } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet, Modal } from 'react-native';
+import { useRouter } from 'expo-router';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { auth } from '../../firebaseConfig';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
@@ -56,10 +58,10 @@ export default function HomeScreen() {
 
       {!isLoggedIn && (
         <>
-          <TouchableOpacity style={styles.button} onPress={() => alert('Login pressed')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
             <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => alert('Register pressed')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/register')}>
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
         </>
@@ -67,13 +69,13 @@ export default function HomeScreen() {
 
       {isLoggedIn && (
         <>
-          <TouchableOpacity style={styles.button} onPress={() => alert('Upload Image pressed')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/upload-image')}>
             <Text style={styles.buttonText}>Upload Image</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => alert('View Uploaded Images pressed')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/view-images')}>
             <Text style={styles.buttonText}>View Uploaded Images</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => alert('View Cropped Images pressed')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/cropped-images')}>
             <Text style={styles.buttonText}>View Cropped Images</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
@@ -85,6 +87,7 @@ export default function HomeScreen() {
         </>
       )}
 
+      {/* Modal for Real-Time Camera */}
       <Modal visible={cameraVisible} animationType="slide">
         <View style={styles.cameraContainer}>
           <CameraView style={styles.camera} facing={facing}>
