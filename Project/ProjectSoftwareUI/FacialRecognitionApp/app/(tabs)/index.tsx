@@ -1,18 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { TouchableOpacity, View, Text, StyleSheet, Modal, Image, ScrollView, Alert } from 'react-native';
+import { Animated, TouchableOpacity, View, Text, Modal, Image, ScrollView, Alert, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CameraView, CameraType } from 'expo-camera';
+import { CameraView } from 'expo-camera';
 import * as FaceDetector from 'expo-face-detector';
+import wallpaper from '../../assets/images/wallpapper.jpg';
+import styles from '../styles';
 import { auth } from '../../firebaseConfig';
-import { useCameraPermissions } from '../useCameraPermissions'; // Custom hook
+import { useCameraPermissions } from '../useCameraPermissions';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [facing, setFacing] = useState('back');
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const cameraRef = useRef(null);
+
+  const titleAnim = useRef(new Animated.Value(-300)).current;
 
   const {
     cameraPermission,
@@ -26,6 +30,15 @@ export default function HomeScreen() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    titleAnim.setValue(-300);
+    Animated.timing(titleAnim, {
+      toValue: 0,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   const handleLogout = async () => {
@@ -45,7 +58,6 @@ export default function HomeScreen() {
         runClassifications: FaceDetector.FaceDetectorClassifications.all,
       });
 
-      // Use response.faces instead of response.result
       if (response.faces && response.faces.length > 0) {
         console.log(`Detected ${response.faces.length} face(s)`);
         return response.faces;
@@ -87,7 +99,7 @@ export default function HomeScreen() {
 
   const renderCapturedImages = () => {
     if (capturedImages.length === 0) {
-      return <Text>No images with faces detected yet.</Text>;
+      return <Text style={{ color: '#fff' }}>No images with faces detected yet.</Text>;
     }
 
     return (
@@ -103,7 +115,6 @@ export default function HomeScreen() {
     );
   };
 
-  // Permission handling
   if (!isPermissionReady) {
     return <Text>Loading permissions...</Text>;
   }
@@ -123,56 +134,35 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Üdvözöllek az Arcfelismerő Programban!</Text>
+    <ImageBackground source={wallpaper} style={styles.container}>
+      <Animated.Text style={[styles.title, { transform: [{ translateX: titleAnim }] }]}>
+        Welcome to IFD!
+      </Animated.Text>
 
-      {!isLoggedIn && (
+      {!isLoggedIn ? (
         <>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/login')}
-          >
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
             <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/register')}
-          >
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/register')}>
             <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
         </>
-      )}
-
-      {isLoggedIn && (
+      ) : (
         <>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/upload-image')}
-          >
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/upload-image')}>
             <Text style={styles.buttonText}>Upload Image</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/view-images')}
-          >
-            <Text style={styles.buttonText}>View Uploaded Images</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push('/cropped-images')}
-          >
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/cropped-images')}>
             <Text style={styles.buttonText}>View Cropped Images</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.logoutButton]}
-            onPress={handleLogout}
-          >
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/view-images')}>
+            <Text style={styles.buttonText}>View Uploaded Images</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
             <Text style={[styles.buttonText, styles.logoutButtonText]}>Logout</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => setCameraVisible(true)}
-          >
+          <TouchableOpacity style={styles.button} onPress={() => setCameraVisible(true)}>
             <Text style={styles.buttonText}>Open Real-Time Camera</Text>
           </TouchableOpacity>
         </>
@@ -214,42 +204,6 @@ export default function HomeScreen() {
         <Text style={styles.capturedImagesTitle}>Captured Images with Faces:</Text>
         {renderCapturedImages()}
       </View>
-    </View>
+    </ImageBackground>
   );
 }
-
-// Existing styles remain the same
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  title: { fontSize: 28, marginBottom: 30 },
-  button: { width: '80%', height: 50, backgroundColor: '#4CAF50', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  buttonText: { fontSize: 16, color: '#fff', fontWeight: 'bold' },
-  logoutButton: { backgroundColor: '#fff', borderColor: '#4CAF50', borderWidth: 2 },
-  logoutButtonText: { color: '#4CAF50' },
-  cameraContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  camera: { flex: 1, width: '100%' },
-  cameraControls: { flexDirection: 'row', justifyContent: 'space-around', padding: 10 },
-  captureButton: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 8 },
-  closeButton: { backgroundColor: '#FF0000', padding: 15, borderRadius: 8 },
-  captureText: { color: '#fff', fontSize: 16 },
-  capturedImagesContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  capturedImagesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  imageList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  preview: {
-    width: 100,
-    height: 100,
-    margin: 5,
-    borderRadius: 8,
-  },
-});

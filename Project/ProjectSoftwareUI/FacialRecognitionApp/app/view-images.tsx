@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, FlatList, Image, StyleSheet, ActivityIndicator, Text } from "react-native";
+import { View, FlatList, Image, StyleSheet, ActivityIndicator, Text, ImageBackground } from "react-native";
 import { auth } from "../firebaseConfig";
+import wallpaper from '../assets/images/wallpapper.jpg';
 
 export default function ViewImagesScreen() {
   const [images, setImages] = useState([]);
@@ -32,40 +33,43 @@ export default function ViewImagesScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <ImageBackground source={wallpaper} style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text style={styles.loadingText}>Loading images...</Text>
-      </View>
+      </ImageBackground>
     );
   }
 
   if (!images.length) {
     return (
-      <View style={styles.container}>
+      <ImageBackground source={wallpaper} style={styles.container}>
         <Text style={styles.noImagesText}>No images uploaded yet.</Text>
-      </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <FlatList
-      contentContainerStyle={styles.container}
-      data={images}
-      keyExtractor={(item, index) => index.toString()}
-      renderItem={({ item }) => (
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: item }} style={styles.image} />
-        </View>
-      )}
-    />
+    <ImageBackground source={wallpaper} style={styles.container}>
+      <FlatList
+        contentContainerStyle={styles.imageList}
+        data={images}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: item }} style={styles.image} />
+          </View>
+        )}
+      />
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, backgroundColor: "#f7f8fa", alignItems: "center" },
+  container: { flexGrow: 1, padding: 20, backgroundColor: "rgba(247, 248, 250, 0.8)", alignItems: "center" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
   noImagesText: { fontSize: 18, color: "#666", textAlign: "center" },
+  imageList: { alignItems: "center" },
   imageContainer: { marginBottom: 20, alignItems: "center" },
   image: { width: 200, height: 200, borderRadius: 8 },
 });

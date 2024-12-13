@@ -7,9 +7,9 @@ import * as FaceDetector from "expo-face-detector";
 
 export default function RealTimeCamera({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
-  const [capturedImages, setCapturedImages] = useState([]); // Store images with faces
+  const [capturedImages, setCapturedImages] = useState([]);
   const [faces, setFaces] = useState([]);
-  const [isFaceDetected, setIsFaceDetected] = useState(false); // Track if a face is detected
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [processing, setProcessing] = useState(false);
   const cameraRef = useRef(null);
 
@@ -21,7 +21,6 @@ export default function RealTimeCamera({ navigation }) {
     })();
   }, []);
 
-  // Function to detect faces in the image
   const detectFaces = async (uri: string) => {
     const { result } = await FaceDetector.detectFacesAsync(uri, {
       mode: FaceDetector.FaceDetectorMode.accurate,
@@ -30,11 +29,10 @@ export default function RealTimeCamera({ navigation }) {
     });
 
     setFaces(result);
-    setIsFaceDetected(result.length > 0); // Update the state if a face is detected
+    setIsFaceDetected(result.length > 0);
     return result;
   };
 
-  // Function to take a picture
   const takePicture = async () => {
     if (cameraRef.current) {
       const photo = await cameraRef.current.takePictureAsync();
@@ -43,7 +41,6 @@ export default function RealTimeCamera({ navigation }) {
       const detectedFaces = await detectFaces(photo.uri);
 
       if (detectedFaces.length > 0) {
-        // Store images with faces
         setCapturedImages((prev) => [...prev, photo.uri]);
       } else {
         alert("No face detected in the picture.");
@@ -57,7 +54,6 @@ export default function RealTimeCamera({ navigation }) {
     try {
       setProcessing(true);
 
-      // Compress and prepare the image for upload
       const compressedImage = await manipulateAsync(capturedImage, [], {
         compress: 0.8,
         format: "jpeg",
@@ -96,10 +92,9 @@ export default function RealTimeCamera({ navigation }) {
     }
   };
 
-  // Real-time face detection callback (to detect faces while the camera is on)
   const handleFaceDetected = ({ faces }) => {
-    setFaces(faces); // Update the state with the detected faces
-    setIsFaceDetected(faces.length > 0); // Set flag based on face detection
+    setFaces(faces);
+    setIsFaceDetected(faces.length > 0);
   };
 
   const renderCapturedImages = () => {
@@ -145,23 +140,19 @@ export default function RealTimeCamera({ navigation }) {
       >
       </Camera>
 
-      {/* Capture button */}
       <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
         <Text style={styles.buttonText}>Capture</Text>
       </TouchableOpacity>
 
-      {/* If no face is detected, display a message */}
       {!isFaceDetected && (
         <Text style={styles.noFaceText}>No face detected</Text>
       )}
 
-      {/* Display captured images with faces */}
       <View style={styles.capturedImagesContainer}>
         <Text style={styles.capturedImagesTitle}>Captured Images with Faces:</Text>
         {renderCapturedImages()}
       </View>
 
-      {/* Display the image preview after capturing */}
       {capturedImage && (
         <>
           <Image source={{ uri: capturedImage }} style={styles.preview} />

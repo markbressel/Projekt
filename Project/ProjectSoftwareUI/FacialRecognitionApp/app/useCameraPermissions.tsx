@@ -9,11 +9,9 @@ export function useCameraPermissions() {
 
   useEffect(() => {
     (async () => {
-      // Request Camera Permissions
       const cameraResult = await Camera.requestCameraPermissionsAsync();
       setCameraPermission(cameraResult.status === 'granted');
 
-      // Request Media Library Permissions
       const mediaResult = await MediaLibrary.requestPermissionsAsync();
       setMediaLibraryPermission(mediaResult.status === 'granted');
     })();
@@ -21,15 +19,12 @@ export function useCameraPermissions() {
 
   const requestPermissions = async () => {
     try {
-      // Camera Permissions
       const cameraResult = await Camera.requestCameraPermissionsAsync();
       setCameraPermission(cameraResult.status === 'granted');
 
-      // Media Library Permissions
       const mediaResult = await MediaLibrary.requestPermissionsAsync();
       setMediaLibraryPermission(mediaResult.status === 'granted');
 
-      // Provide detailed feedback
       if (cameraResult.status !== 'granted' || mediaResult.status !== 'granted') {
         Alert.alert(
           'Permissions Required',

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, ImageBackground } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, auth, storage } from '../firebaseConfig';
+import { db, auth } from '../firebaseConfig';
 import Toast from 'react-native-toast-message';
+import styles from './styles';
+import wallpaper from '../assets/images/wallpapper.jpg';
 
 export default function UploadImageScreen() {
   const [image, setImage] = useState(null);
@@ -59,8 +60,6 @@ export default function UploadImageScreen() {
       });
       formData.append('user_id', user.uid);
 
-      console.log("FormData:", formData);
-
       const response = await fetch('http://192.168.0.106:8000/upload/', {
         method: 'POST',
         body: formData,
@@ -96,11 +95,11 @@ export default function UploadImageScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ImageBackground source={wallpaper} style={styles.container}>
       <Toast />
       <Text style={styles.title}>Upload Image</Text>
 
-      <TouchableOpacity style={styles.pickButton} onPress={pickImage}>
+      <TouchableOpacity style={styles.button} onPress={pickImage}>
         <Text style={styles.buttonText}>Pick Image</Text>
       </TouchableOpacity>
 
@@ -113,24 +112,12 @@ export default function UploadImageScreen() {
       )}
 
       <TouchableOpacity
-        style={[styles.uploadButton, !image && styles.disabledButton]}
+        style={[styles.button, !image && styles.disabledButton]}
         onPress={uploadImage}
         disabled={!image}
       >
         <Text style={styles.buttonText}>Upload Image</Text>
       </TouchableOpacity>
-    </View>
+    </ImageBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 24, marginBottom: 30, fontWeight: 'bold', color: '#333' },
-  fileName: { marginTop: 10, fontSize: 16, color: '#666', textAlign: 'center' },
-  imageContainer: { marginVertical: 20, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#ddd' },
-  image: { width: 300, height: 300, backgroundColor: '#f0f0f0' },
-  pickButton: { backgroundColor: '#4CAF50', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 8, marginBottom: 10 },
-  uploadButton: { backgroundColor: '#2196F3', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 8, marginTop: 10 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  disabledButton: { backgroundColor: '#cccccc' },
-});
